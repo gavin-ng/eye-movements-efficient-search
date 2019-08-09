@@ -2,11 +2,16 @@
 ##
 ##
 
+
+## low-sim = 1
+## high-sim = 2
+## free-viewing = 1
+## fixed-viewing = 2
 #########
 # Setup #
 #########
 
-setwd('C:/Users/Gavin/Box Sync/Human Attention Lab Folders/Attention Project/Gavin/Log slopes')
+setwd('D:/Box Sync/Human Attention Lab Folders/Attention Project/Gavin/Log slopes')
 
 
 folder = getwd()
@@ -19,6 +24,7 @@ library(ez)
 library(broom)
 
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
+
 
 
 
@@ -122,10 +128,11 @@ target_2$d_id <- 2
 
 slopes_data <- rbind(good_data %>% filter(d_id!=0), target_1, target_2)
 
+## Condition: 1 == free, 2 == fixed
 
 
-slopes <- slopes_data %>%
-  mutate(eyeleave_2 = if_else(condition==2 & saccade_latency>0, 1, 0)) %>%
+log_slopes <- slopes_data %>%
+  # mutate(eyeleave_2 = if_else(condition==2 & saccade_latency>0, 1, 0)) %>%
   # mutate(eyeleave_1 = if_else(condition==1 & saccade_latency>0, 0, 1)) %>%
   filter((condition==2 & is.na(saccade_latency)) | (condition==1))%>%
   group_by(sub_id, d_id, condition, order, d_setsize_log) %>%
@@ -134,6 +141,25 @@ slopes <- slopes_data %>%
   tidy(slope) %>%
   filter(term=="d_setsize_log") %>%
   select(-term, -std.error, -statistic, -p.value)
+
+mean_log_slopes <- log_slopes %>%
+  group_by(d_id, condition) %>%
+  summarise(mean_log = mean(estimate))
+
+linear_slopes <- slopes_data %>%
+  mutate(eyeleave_2 = if_else(condition==2 & saccade_latency>0, 1, 0)) %>%
+  # mutate(eyeleave_1 = if_else(condition==1 & saccade_latency>0, 0, 1)) %>%
+  filter((condition==2 & is.na(saccade_latency)) | (condition==1))%>%
+  group_by(sub_id, d_id, condition, d_setsize) %>%
+  summarise(meanrt = mean(RT, na.rm=TRUE)) %>%
+  do(slope = lm(meanrt ~ d_setsize, data=.)) %>%
+  tidy(slope) %>%
+  filter(term=="d_setsize") %>%
+  select(-term, -std.error, -statistic, -p.value)
+
+mean_linear_slopes <- linear_slopes %>%
+  group_by(d_id, condition) %>%
+  summarise(mean_linear = mean(estimate))
 
 
 slopes_data$half <- unlist(slopes_data$half)
@@ -158,13 +184,13 @@ t.test((slopes %>% filter(d_id==1, condition==1))$estimate, (slopes%>%filter(d_i
 t.test((slopes %>% filter(d_id==2, block==1))$estimate, (slopes%>%filter(d_id==2, block==2))$estimate, paired=TRUE)
 
 
-slopes_wide <- slopes %>%
+slopes_wide <- log_slopes %>%
   spread(order, estimate)
 
-slopes$order <- as.factor(slopes$order)
-slopes$condition <- as.factor(slopes$condition)
-slopes$block <- as.factor(slopes$block)
-slopes$d_id <- as.factor(slopes$d_id)
+log_slopes$order <- as.factor(log_slopes$order)
+log_slopes$condition <- as.factor(log_slopes$condition)
+log_slopes$block <- as.factor(log_slopes$block)
+log_slopes$d_id <- as.factor(log_slopes$d_id)
 
 ezANOVA(slopes_half %>%filter(d_id==1),
         dv=estimate,
@@ -172,13 +198,13 @@ ezANOVA(slopes_half %>%filter(d_id==1),
         within=.(half),
         between=block)
 
-ezANOVA(slopes,
+ezANOVA(log_slopes,
         dv = estimate,
         wid=sub_id,
         within=condition,
         between=order)
 
-ezANOVA(slopes,
+ezANOVA(log_slopes,
         dv=estimate,
         wid=sub_id,
         within=.(condition, d_id),

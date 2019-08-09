@@ -5,7 +5,7 @@
 #########
 # Setup #
 #########
-setwd('C:/Users/Gavin/Box Sync/Human Attention Lab Folders/Attention Project/Gavin/Log slopes')
+setwd('D:/Box Sync/Human Attention Lab Folders/Attention Project/Gavin/Log slopes')
 
 folder = getwd()
 # setwd(folder)
@@ -97,7 +97,7 @@ target_2$d_id <- 2
 slopes_data <- rbind(good_data %>% filter(d_id!=0), target_1, target_2)
 
 
-slopes <- slopes_data %>%
+log_slopes <- slopes_data %>%
   mutate(eyeleave_2 = if_else(condition==2 & saccade_latency>0, 1, 0)) %>%
   # mutate(eyeleave_1 = if_else(condition==1 & saccade_latency>0, 0, 1)) %>%
   filter((condition==2 & is.na(saccade_latency)) | (condition==1))%>%
@@ -109,9 +109,25 @@ slopes <- slopes_data %>%
   select(-term, -std.error, -statistic, -p.value)
 
 
-slope_vals <- slopes %>%
+mean_log_slopes <- log_slopes %>%
   group_by(d_id, condition) %>%
   summarise(slope = mean(estimate))
+
+
+linear_slopes <- slopes_data %>%
+  mutate(eyeleave_2 = if_else(condition==2 & saccade_latency>0, 1, 0)) %>%
+  # mutate(eyeleave_1 = if_else(condition==1 & saccade_latency>0, 0, 1)) %>%
+  filter((condition==2 & is.na(saccade_latency)) | (condition==1))%>%
+  group_by(sub_id, d_id, condition, d_setsize) %>%
+  summarise(meanrt = mean(RT, na.rm=TRUE)) %>%
+  do(slope = lm(meanrt ~ d_setsize, data=.)) %>%
+  tidy(slope) %>%
+  filter(term=="d_setsize") %>%
+  select(-term, -std.error, -statistic, -p.value)
+
+mean_linear_slopes <- linear_slopes %>%
+  group_by(d_id, condition) %>%
+  summarise(mean_linear = mean(estimate))
 
 slopes$d_id <- as.factor(slopes$d_id)
 slopes$condition <- as.factor(slopes$condition)
